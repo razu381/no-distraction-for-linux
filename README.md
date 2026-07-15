@@ -29,15 +29,25 @@ self-control tool) if it's present.
    | Brave    | `/etc/brave/policies/managed/plug.json`      | Chrome Web Store |
    | Edge     | `/etc/opt/edge/policies/managed/plug.json`   | Chrome Web Store |
    | Chromium | `/etc/chromium/policies/managed/plug.json`   | Chrome Web Store |
+   | Sidekick | `/etc/sidekick/policies/managed/plug.json`   | Chrome Web Store |
+   | Wavebox  | `/etc/wavebox/policies/managed/plug.json`    | Chrome Web Store |
    | Firefox  | `/etc/firefox/policies/policies.json`        | addons.mozilla.org |
 
-2. Removes any **Pluckeye** entries from those same files, and (by default)
-   deletes the Pluckeye application (`/usr/bin/pluck`, `/opt/pluck`).
+2. **Sweeps stray files out of each `policies/managed/` directory.** This is
+   load-bearing: Chromium browsers read *every* file in that directory as
+   policy (alphabetically, later files win), so a leftover backup like
+   `plug.json.bak-...` silently overrides the real policy. See
+   [Troubleshooting](#troubleshooting).
+
+3. Removes any **Pluckeye** entries from those same files, and (by default)
+   deletes the Pluckeye application (`/usr/bin/pluck`, `/opt/pluck`) and its
+   `net.pluckeye.*` native-messaging manifests.
 
 It is **surgical** (keeps any unrelated policies you already have),
 **idempotent** (safe to re-run — it only changes what isn't already correct),
-and **backs up** every file it touches to `<file>.bak-<timestamp>` before
-writing. The removed Pluckeye app is archived to `/var/backups/pluckeye-<timestamp>.tar.gz`.
+and **backs up** everything it touches into `/var/backups/no-distraction/`
+(never into the policy directories themselves). The removed Pluckeye app is
+archived to `/var/backups/no-distraction/pluckeye-<timestamp>.tar.gz`.
 
 ---
 
@@ -90,26 +100,52 @@ All knobs are constants near the top of `enforce_news_feed_eradicator.py`:
 
 ## Undo
 
-```bash
-# Restore the most recent backups (adjust the timestamp glob as needed):
-for f in /etc/opt/chrome/policies/managed/plug.json \
-         /etc/brave/policies/managed/plug.json \
-         /etc/opt/edge/policies/managed/plug.json \
-         /etc/chromium/policies/managed/plug.json \
-         /etc/firefox/policies/policies.json; do
-  ls "$f".bak-* 2>/dev/null | tail -1 | xargs -I{} sudo cp {} "$f"
-done
+All backups live in `/var/backups/no-distraction/` with the original path
+encoded in the filename (`/` replaced by `__`). To drop the enforcement
+entirely, just remove the policy files:
 
-# ...or simply remove the policies entirely:
+```bash
 sudo rm -f /etc/opt/chrome/policies/managed/plug.json \
            /etc/brave/policies/managed/plug.json \
            /etc/opt/edge/policies/managed/plug.json \
            /etc/chromium/policies/managed/plug.json \
+           /etc/sidekick/policies/managed/plug.json \
+           /etc/wavebox/policies/managed/plug.json \
            /etc/firefox/policies/policies.json
 ```
 
-Restart the browsers afterward. Restore Pluckeye (if you removed it) by
-extracting `/var/backups/pluckeye-*.tar.gz` back to `/`.
+Restart the browsers afterward. To restore an original file instead, copy the
+matching backup out of `/var/backups/no-distraction/` — but **never leave a
+backup copy inside a `policies/managed/` directory** (see Troubleshooting).
+Restore Pluckeye (if you removed it) by extracting
+`/var/backups/no-distraction/pluckeye-*.tar.gz` back to `/`.
+
+---
+
+## Troubleshooting
+
+**The extension isn't force-installed even after a full restart / reboot.**
+The most likely cause — and a bug an early version of this script had — is a
+stray file sitting next to the policy: Chromium browsers load **every file**
+in `policies/managed/` as policy, in alphabetical order, with later files
+overriding earlier ones. A leftover `plug.json.bak-...` therefore silently
+overrides `plug.json`. Check with:
+
+```bash
+ls /etc/brave/policies/managed/   # must contain ONLY your policy file(s)
+```
+
+Re-running the script fixes this automatically (it sweeps stray files into
+`/var/backups/no-distraction/`).
+
+Other checks, in order:
+1. `brave://policy` → **Reload policies** → `ExtensionSettings` must show the
+   extension id with Status **OK**.
+2. Fully quit the browser (`pkill -f brave`) and reopen — policy loads at
+   startup; give it a minute on first launch to download the extension.
+3. If the policy shows correctly but the extension still doesn't appear,
+   install it once manually from the store — the `force_installed` policy
+   then locks the manually-installed copy (Remove/disable disappear).
 
 ---
 

@@ -54,6 +54,8 @@ POLICY_FILES = [
     ("/etc/brave/policies/managed/plug.json", "chromium"),
     ("/etc/opt/edge/policies/managed/plug.json", "chromium"),
     ("/etc/chromium/policies/managed/plug.json", "chromium"),
+    ("/etc/sidekick/policies/managed/plug.json", "chromium"),
+    ("/etc/wavebox/policies/managed/plug.json", "chromium"),
     ("/etc/firefox/policies/policies.json", "firefox"),
 ]
 
@@ -70,9 +72,21 @@ PLUCKEYE_EXT_IDS = {
 # strip its browser policies).
 REMOVE_PLUCKEYE_APP = True
 PLUCKEYE_APP_PATHS = ["/usr/bin/pluck", "/opt/pluck"]
+# Pluckeye's native-messaging host manifests (leftovers once the app is gone).
+PLUCKEYE_NM_GLOBS = [
+    "/etc/opt/chrome/native-messaging-hosts/net.pluckeye.*.json",
+    "/etc/opt/edge/native-messaging-hosts/net.pluckeye.*.json",
+    "/etc/chromium/native-messaging-hosts/net.pluckeye.*.json",
+    "/etc/brave/native-messaging-hosts/net.pluckeye.*.json",
+    "/usr/lib/mozilla/native-messaging-hosts/net.pluckeye.*.json",
+]
 
 STAMP = time.strftime("%Y%m%d-%H%M%S")
-BACKUP_DIR = "/var/backups"
+# CRITICAL: backups must live OUTSIDE the policy directories. Chromium browsers
+# load EVERY file in policies/managed/ (alphabetically, later files win), so a
+# stale plug.json.bak-... left in the directory would silently override the
+# real policy.
+BACKUP_DIR = "/var/backups/no-distraction"
 
 
 # ---------------------------------------------------------------------------
@@ -94,7 +108,34 @@ def is_pluckeye_entry(ext_id, entry):
     return False
 
 
+def backup_path_for(path):
+    """Backup location for `path`, always outside the policy directory."""
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    flat = path.strip("/").replace("/", "__")
+    return os.path.join(BACKUP_DIR, f"{flat}.bak-{STAMP}")
+
+
+def sweep_policy_dir(path):
+    """Move every stray file (anything but `path` itself) out of the policy
+    directory into BACKUP_DIR. Chromium loads ALL files in the directory as
+    policy, so leftover backups/temp files would override the real policy."""
+    directory = os.path.dirname(path)
+    if not os.path.isdir(directory):
+        return
+    keep = os.path.basename(path)
+    for name in sorted(os.listdir(directory)):
+        full = os.path.join(directory, name)
+        if name == keep or os.path.isdir(full):
+            continue
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+        flat = full.strip("/").replace("/", "__")
+        dest = os.path.join(BACKUP_DIR, f"swept-{STAMP}-{flat}")
+        shutil.move(full, dest)
+        print(f"SWEPT   {full}\n          stray file in policy dir -> {dest}")
+
+
 def configure_policy(path, kind):
+    sweep_policy_dir(path)
     if not os.path.exists(path):
         print(f"SKIP    {path}  (browser not configured here)")
         return
@@ -134,12 +175,25 @@ def configure_policy(path, kind):
             print(f"OK      {path}  (already correct)")
             return
 
-    backup = f"{path}.bak-{STAMP}"
+    backup = backup_path_for(path)
     shutil.copy2(path, backup)
     with open(path, "w") as fh:
         fh.write(new_text)
     print(f"DONE    {path}\n          News Feed Eradicator forced; Pluckeye removed"
           f"\n          backup: {backup}")
+
+
+def remove_pluckeye_native_messaging():
+    import glob
+    removed = False
+    for pattern in PLUCKEYE_NM_GLOBS:
+        for f in glob.glob(pattern):
+            dest = backup_path_for(f)
+            shutil.move(f, dest)
+            print(f"REMOVED {f}  (backup: {dest})")
+            removed = True
+    if not removed:
+        print("OK      no Pluckeye native-messaging manifests found")
 
 
 def remove_pluckeye_app():
@@ -174,6 +228,7 @@ def main():
     if REMOVE_PLUCKEYE_APP:
         print("\n== Removing Pluckeye application ==")
         remove_pluckeye_app()
+        remove_pluckeye_native_messaging()
 
     print(
         "\nDone.\n"
