@@ -59,6 +59,18 @@ POLICY_FILES = [
     ("/etc/firefox/policies/policies.json", "firefox"),
 ]
 
+# --- No Distraction Guard (our own MV3 extension) --------------------------
+# URLBlocklist only sees real page loads; YouTube/Facebook are single-page
+# apps, so clicking the logo routes to the feed client-side without a load.
+# This force-installed extension (source in ext-src/) bounces feed pages to a
+# block page on every SPA route change. Served from this repo's GitHub Pages.
+ENFORCE_GUARD = True
+GUARD_ID = "ahhnhcdplceilngfnnolcejegaiedplm"
+GUARD_ENTRY = {
+    "installation_mode": "force_installed",
+    "update_url": "https://razu381.github.io/no-distraction-for-linux/ext/updates.xml",
+}
+
 # --- Browser-level URL rules (feed-killing) --------------------------------
 # Enforced by the BROWSER, not the extension — there is no UI toggle for these,
 # so they close the "just turn the filter off inside the extension" loophole.
@@ -189,11 +201,14 @@ def configure_policy(path, kind):
     # Pluckeye's ExtensionManifestV2Availability is inert/unknown here — drop it.
     container.pop("ExtensionManifestV2Availability", None)
 
-    # Add News Feed Eradicator.
+    # Add News Feed Eradicator (and the SPA guard on Chromium browsers;
+    # Firefox would need an AMO-signed xpi, so the guard is Chromium-only).
     if kind == "firefox":
         ext[NFE_FIREFOX_ID] = NFE_FIREFOX_ENTRY
     else:
         ext[NFE_CHROMIUM_ID] = NFE_CHROMIUM_ENTRY
+        if ENFORCE_GUARD:
+            ext[GUARD_ID] = GUARD_ENTRY
     container["ExtensionSettings"] = ext
 
     # Browser-enforced feed blocking (merged with any existing entries).
