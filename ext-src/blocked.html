@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Feed blocked</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: system-ui, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; margin: 0;
+  }
+  main { text-align: center; max-width: 34rem; padding: 2rem; }
+  h1 { font-size: 1.6rem; margin-bottom: .4rem; }
+  p { opacity: .75; margin-top: 0; }
+  form { margin-top: 1.5rem; display: flex; gap: .5rem; justify-content: center; }
+  input[type=search] {
+    flex: 1; max-width: 20rem; padding: .55rem .8rem;
+    border: 1px solid #8884; border-radius: .5rem; font-size: 1rem;
+  }
+  button { padding: .55rem 1rem; border: 0; border-radius: .5rem;
+    background: #c00; color: #fff; font-size: 1rem; cursor: pointer; }
+  small { display: block; margin-top: 2.5rem; opacity: .45; }
+</style>
+</head>
+<body>
+<main>
+  <h1>The feed stays closed.</h1>
+  <p>You blocked this page on purpose, for a reason.<br>
+     Looking for something specific? Search for it:</p>
+  <form action="https://www.youtube.com/results" method="get">
+    <input type="search" name="search_query" placeholder="Search YouTube deliberately…" autofocus>
+    <button type="submit">Search</button>
+  </form>
+  <small>No Distraction Guard — installed by policy</small>
+</main>
+</body>
+</html>
