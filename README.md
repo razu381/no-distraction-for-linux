@@ -33,13 +33,24 @@ self-control tool) if it's present.
    | Wavebox  | `/etc/wavebox/policies/managed/plug.json`    | Chrome Web Store |
    | Firefox  | `/etc/firefox/policies/policies.json`        | addons.mozilla.org |
 
-2. **Sweeps stray files out of each `policies/managed/` directory.** This is
+2. Adds **browser-enforced feed blocking** (`URLBlocklist`/`URLAllowlist` in
+   Chromium browsers, `WebsiteFilter` in Firefox). This is the layer the
+   extension can't give you: News Feed Eradicator's own per-site toggles live
+   in its local settings and can always be switched off, but a URL policy is
+   enforced by the browser with **no UI toggle anywhere**. Default rules:
+   YouTube and Facebook are blocked *except* YouTube search (`/results`),
+   direct videos (`/watch`, `/embed`), Facebook Messages and Groups — so the
+   feeds die but deliberate use still works. Edit `URL_BLOCKLIST` /
+   `URL_ALLOWLIST` (and the `FF_*` equivalents) in the script to taste, or set
+   `ENFORCE_URL_RULES = False` to skip this layer.
+
+3. **Sweeps stray files out of each `policies/managed/` directory.** This is
    load-bearing: Chromium browsers read *every* file in that directory as
    policy (alphabetically, later files win), so a leftover backup like
    `plug.json.bak-...` silently overrides the real policy. See
    [Troubleshooting](#troubleshooting).
 
-3. Removes any **Pluckeye** entries from those same files, and (by default)
+4. Removes any **Pluckeye** entries from those same files, and (by default)
    deletes the Pluckeye application (`/usr/bin/pluck`, `/opt/pluck`) and its
    `net.pluckeye.*` native-messaging manifests.
 

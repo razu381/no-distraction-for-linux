@@ -59,6 +59,33 @@ POLICY_FILES = [
     ("/etc/firefox/policies/policies.json", "firefox"),
 ]
 
+# --- Browser-level URL rules (feed-killing) --------------------------------
+# Enforced by the BROWSER, not the extension — there is no UI toggle for these,
+# so they close the "just turn the filter off inside the extension" loophole.
+# The blocklist blocks a site outright; the allowlist punches holes for the
+# parts you still want (allowlist always wins over blocklist).
+ENFORCE_URL_RULES = True
+URL_BLOCKLIST = [
+    "youtube.com",            # homepage feed, Shorts, recommendations
+    "facebook.com",           # home feed
+]
+URL_ALLOWLIST = [
+    "youtube.com/watch",      # videos you navigate to deliberately
+    "youtube.com/results",    # search
+    "youtube.com/embed",      # videos embedded in other sites
+    "facebook.com/messages",
+    "facebook.com/groups",
+]
+# Firefox equivalents (WebsiteFilter uses match patterns, http/https only).
+FF_BLOCK = ["*://*.youtube.com/*", "*://*.facebook.com/*"]
+FF_EXCEPTIONS = [
+    "*://*.youtube.com/watch*",
+    "*://*.youtube.com/results*",
+    "*://*.youtube.com/embed/*",
+    "*://*.facebook.com/messages*",
+    "*://*.facebook.com/groups*",
+]
+
 # --- Pluckeye removal ------------------------------------------------------
 # Known Pluckeye extension ids (its Edge id contains no "pluck" string, so it is
 # listed explicitly). Any ExtensionSettings entry whose URL contains "pluck" is
@@ -168,6 +195,23 @@ def configure_policy(path, kind):
     else:
         ext[NFE_CHROMIUM_ID] = NFE_CHROMIUM_ENTRY
     container["ExtensionSettings"] = ext
+
+    # Browser-enforced feed blocking (merged with any existing entries).
+    if ENFORCE_URL_RULES:
+        def merged(existing, ours):
+            base = existing if isinstance(existing, list) else []
+            return sorted(set(base) | set(ours))
+
+        if kind == "firefox":
+            wf = container.get("WebsiteFilter")
+            if not isinstance(wf, dict):
+                wf = {}
+            wf["Block"] = merged(wf.get("Block"), FF_BLOCK)
+            wf["Exceptions"] = merged(wf.get("Exceptions"), FF_EXCEPTIONS)
+            container["WebsiteFilter"] = wf
+        else:
+            container["URLBlocklist"] = merged(container.get("URLBlocklist"), URL_BLOCKLIST)
+            container["URLAllowlist"] = merged(container.get("URLAllowlist"), URL_ALLOWLIST)
 
     new_text = json.dumps(data, indent=2) + "\n"
     with open(path) as fh:
