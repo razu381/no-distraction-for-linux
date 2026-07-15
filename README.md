@@ -9,6 +9,9 @@ enterprise policy."*
 This repo also cleanly removes [Pluckeye](https://www.pluckeye.net/) (an older
 self-control tool) if it's present.
 
+> **Read [HOW-IT-WORKS.md](HOW-IT-WORKS.md)** for the full three-layer
+> architecture and why each layer exists.
+
 > **Honest expectation-setting:** this is *friction, not a wall.* You own the
 > machine, so you can always undo it with `sudo` (see [Undo](#undo)). The point
 > is to turn a one-click impulse into a deliberate, annoying chore — which is
